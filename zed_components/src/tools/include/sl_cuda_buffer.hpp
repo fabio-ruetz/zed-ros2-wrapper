@@ -47,9 +47,6 @@ namespace sl_tools
 // Name of the `rosidl::Buffer` backend plugin providing the CUDA zero-copy transport
 constexpr auto CUDA_BUFFER_BACKEND = "cuda";
 
-// The only RMW implementation that currently supports `rosidl::Buffer` backends
-constexpr auto CUDA_BUFFER_RMW = "rmw_fastrtps_cpp";
-
 // How to deliver a message to the subscribers of a publisher
 struct BufferRoute
 {
@@ -83,6 +80,11 @@ BufferRoute getBufferRoute(const PublisherT & pub)
 }
 
 #ifdef FOUND_CUDA_BUFFER
+
+// Check that the RMW implementation `rmw` supports the `rosidl::Buffer`
+// backends: `rmw_fastrtps_cpp`, or `rmw_zenoh_cpp` v0.10.5 or newer (Lyrical).
+// `reason` receives the reason when it is not supported.
+bool isCudaBufferRmwSupported(const std::string & rmw, std::string & reason);
 
 // Check that the `cuda` buffer backend plugin is installed.
 // `installed` receives the names of all the installed buffer backends.

@@ -20,8 +20,15 @@
 #include <cuda_runtime.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <exception>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <tuple>
 #include <utility>
+
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 #include <sensor_msgs/image_encodings.hpp>
 
@@ -97,7 +104,52 @@ void fillImageInfo(
   msg.step = width * img.getPixelBytes();
   msg.encoding = encoding;
 }
+
+// Read the version of an installed ROS 2 package from its `package.xml` file
+bool getPackageVersion(const std::string & pkg, int & major, int & minor, int & patch)
+{
+  try {
+    std::ifstream file(ament_index_cpp::get_package_share_directory(pkg) + "/package.xml");
+    const std::string xml(
+      (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    const auto pos = xml.find("<version>");
+    return pos != std::string::npos &&
+           std::sscanf(xml.c_str() + pos + 9, "%d.%d.%d", &major, &minor, &patch) == 3;
+  } catch (const std::exception &) {
+    return false;
+  }
+}
 }  // namespace
+
+bool isCudaBufferRmwSupported(const std::string & rmw, std::string & reason)
+{
+  if (rmw == "rmw_fastrtps_cpp") {
+    return true;
+  }
+  if (rmw == "rmw_zenoh_cpp") {
+    // `rosidl::Buffer` backends are supported by rmw_zenoh_cpp v0.12.0 and newer
+    // (ros2/rmw_zenoh#930), and by v0.10.5 and newer on Lyrical (backport #987).
+    // The v0.11 releases of Rolling do not support them.
+    int major = 0, minor = 0, patch = 0;
+    if (!getPackageVersion(rmw, major, minor, patch)) {
+      reason = "cannot read the version of 'rmw_zenoh_cpp', v0.10.5 or newer is required";
+      return false;
+    }
+    const auto version = std::make_tuple(major, minor, patch);
+    const bool supported = (version >= std::make_tuple(0, 10, 5) &&
+      version < std::make_tuple(0, 11, 0)) || version >= std::make_tuple(0, 12, 0);
+    if (!supported) {
+      reason = "'rmw_zenoh_cpp' v" + std::to_string(major) + "." + std::to_string(minor) + "." +
+        std::to_string(patch) +
+        " does not support it, v0.10.5 (Lyrical) or v0.12.0 or newer is required";
+      return false;
+    }
+    return true;
+  }
+  reason = "'" + rmw +
+    "' does not support it, requires 'rmw_fastrtps_cpp' or 'rmw_zenoh_cpp' v0.10.5 or newer";
+  return false;
+}
 
 bool isCudaBufferBackendInstalled(std::vector<std::string> & installed)
 {

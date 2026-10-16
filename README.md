@@ -352,11 +352,24 @@ Roll, Pitch, and the relative velocities will be fixed to zero.
 
 The ZED ROS 2 Wrapper is compatible with the [NVIDIA® Isaac ROS](https://nvidia-isaac-ros.github.io/) framework, which provides a set of tools and libraries for building robotics applications on NVIDIA® platforms.
 
-The ZED ROS 2 Wrapper leverages [NITROS](https://nvidia-isaac-ros.github.io/concepts/nitros/index.html) (NVIDIA® Isaac Transport for ROS) a technology to enable data streaming through NVIDIA-accelerated ROS graphs.
+### CUDA zero-copy transport (Isaac ROS 5, ROS 2 Lyrical)
+
+Starting with v5.6.0, on ROS 2 Lyrical and newer, the ZED ROS 2 Wrapper supports the [`rosidl::Buffer`](https://nvidia-isaac-ros.github.io/concepts/rosidl_buffer/index.html) message fields: the images, depth maps, confidence maps, and point clouds stay in GPU memory, and are shared without copies with the subscribers on the same host and GPU that accept the `cuda` buffer backend. All the other subscribers automatically receive standard CPU data, with no change on their side.
+
+The transport is enabled by default with the `general.buffer_backend` parameter (`cuda` or `cpu`), and requires:
+
+- the `cuda_buffer` package when the wrapper is built, and the `cuda_buffer_backend` plugin when the node runs
+- the `rmw_fastrtps_cpp` middleware (default), or `rmw_zenoh_cpp` v0.10.5 or newer
+
+Read the [CUDA zero-copy transport guide](https://docs.stereolabs.com/docs/integrations/isaac-ros/cuda-zero-copy/) to learn how it works, how to set it up, and how to receive the ZED data in GPU memory in your own nodes.
+
+### NITROS (Isaac ROS 3, ROS 2 Humble)
+
+With Isaac ROS 3, the ZED ROS 2 Wrapper leverages [NITROS](https://nvidia-isaac-ros.github.io/concepts/nitros/index.html) (NVIDIA® Isaac Transport for ROS), a technology to enable data streaming through NVIDIA-accelerated ROS graphs.
 
 ![NITROS communication](./images/nitros-graph.gif)
 
-Read the full [Isaac ROS integration guide](https://docs.stereolabs.com/isaac-ros/) and learn how to set up your development environment to use the ZED ROS2 Wrapper with Isaac ROS and NITROS.
+Read the full [Isaac ROS integration guide](https://docs.stereolabs.com/isaac-ros/) and learn how to set up your development environment to use the ZED ROS 2 Wrapper with Isaac ROS.
 
 ## Examples and Tutorials
 

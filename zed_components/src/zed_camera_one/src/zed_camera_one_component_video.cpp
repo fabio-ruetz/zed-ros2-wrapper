@@ -1314,14 +1314,11 @@ void ZedCameraOne::initCudaBufferTransport()
   }
 
 #ifdef FOUND_CUDA_BUFFER
-  const std::string rmw = rmw_get_implementation_identifier();
-  if (rmw != sl_tools::CUDA_BUFFER_RMW) {
+  std::string rmw_reason;
+  if (!sl_tools::isCudaBufferRmwSupported(rmw_get_implementation_identifier(), rmw_reason)) {
     RCLCPP_INFO_STREAM(
       get_logger(),
-      " * Buffer transport: CPU [CUDA zero-copy not supported by '" << rmw
-                                                                    << "', requires '"
-                                                                    << sl_tools::CUDA_BUFFER_RMW
-                                                                    << "']");
+      " * Buffer transport: CPU [CUDA zero-copy not available: " << rmw_reason << "]");
     return;
   }
 
