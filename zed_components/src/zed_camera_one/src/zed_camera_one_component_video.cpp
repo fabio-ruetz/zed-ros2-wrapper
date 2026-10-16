@@ -494,7 +494,8 @@ void ZedCameraOne::handleImageRetrievalAndPublishing()
   if (_imageSubscribed) {
     DEBUG_STREAM_VD("Retrieving video data");
 
-    bool gpu = false;
+    // Retrieve on GPU the images published with the CUDA transport
+    bool gpu = _cudaBufferActive;
 #ifdef FOUND_ISAAC_ROS_NITROS
     if (!_nitrosDisabled) {
       gpu = true;
@@ -777,6 +778,12 @@ void ZedCameraOne::publishImageWithInfo(
   try {
     publishCameraInfo(infoPub, camInfoMsg, stamp);
     publishCameraInfo(infoPubTrans, camInfoMsg, stamp);
+
+    // Image retrieved on GPU for the CUDA transport
+    if (img.getMemoryType() == sl::MEM::GPU) {
+      publishGpuImage(img, ipcPubImg, itPubImg, imgFrameId, stamp);
+      return;
+    }
 
     // Publish image_transport first for compression-plugin subscribers.
     // This IPC path publishes an independent StampedSlMat message,
@@ -1294,5 +1301,158 @@ void ZedCameraOne::publishCameraInfos()
   publishCameraInfo(_pubGrayImgInfoTrans, _camInfoMsg, pub_ts);
   publishCameraInfo(_pubGrayRawImgInfoTrans, _camInfoRawMsg, pub_ts);
 }
+
+// ----> `rosidl::Buffer` CUDA transport
+
+void ZedCameraOne::initCudaBufferTransport()
+{
+  _cudaBufferActive = false;
+
+  if (_bufferBackend != "cuda") {
+    RCLCPP_INFO(get_logger(), " * Buffer transport: CPU [general.buffer_backend: 'cpu']");
+    return;
+  }
+
+#ifdef FOUND_CUDA_BUFFER
+  const std::string rmw = rmw_get_implementation_identifier();
+  if (rmw != sl_tools::CUDA_BUFFER_RMW) {
+    RCLCPP_INFO_STREAM(
+      get_logger(),
+      " * Buffer transport: CPU [CUDA zero-copy not supported by '" << rmw
+                                                                    << "', requires '"
+                                                                    << sl_tools::CUDA_BUFFER_RMW
+                                                                    << "']");
+    return;
+  }
+
+  std::vector<std::string> installed;
+  if (!sl_tools::isCudaBufferBackendInstalled(installed)) {
+    std::string list;
+    for (const auto & name : installed) {
+      list += (list.empty() ? "" : ", ") + name;
+    }
+    RCLCPP_WARN_STREAM(
+      get_logger(),
+      " * Buffer transport: CPU [the '" << sl_tools::CUDA_BUFFER_BACKEND
+                                        << "' buffer backend plugin is not installed. "
+                                        << "Installed backends: [" << list
+                                        << "]. Install the 'cuda_buffer_backend' package "
+                                        << "to enable the CUDA zero-copy transport]");
+    return;
+  }
+
+  // sl::CameraOne does not expose its CUDA context: use the one of its CUDA
+  // stream, or the one made current by `open()`
+  CUstream sdk_stream = _zed->getCUDAStream();
+  CUcontext sdk_ctx = nullptr;
+  if (!sdk_stream) {
+    cuCtxGetCurrent(&sdk_ctx);
+  }
+
+  _cudaBuffer = std::make_unique<sl_tools::CudaBufferTransport>();
+  std::string err;
+  // sl::CameraOne::retrieveImage has no stream parameter: the copies wait for
+  // the GPU work of the SDK, which is safe because the images are published
+  // in the grab thread before the next grab
+  if (!_cudaBuffer->init(sdk_ctx, sdk_stream, false, err)) {
+    RCLCPP_WARN_STREAM(
+      get_logger(),
+      " * Buffer transport: CPU [CUDA zero-copy initialization failed: " << err << "]");
+    _cudaBuffer.reset();
+    return;
+  }
+
+  _cudaBufferActive = true;
+  RCLCPP_INFO(
+    get_logger(),
+    " * Buffer transport: CUDA zero-copy [automatic CPU fallback for subscribers "
+    "that cannot use it]");
+  if (_qos.durability() == rclcpp::DurabilityPolicy::TransientLocal) {
+    RCLCPP_WARN(
+      get_logger(),
+      "   The CUDA zero-copy transport does not support the TRANSIENT_LOCAL "
+      "durability: CPU data will be published");
+  }
+#else
+  RCLCPP_INFO(
+    get_logger(),
+    " * Buffer transport: CPU [CUDA zero-copy not available: it requires ROS 2 "
+    "Lyrical or newer with the 'cuda_buffer' package]");
+#endif
+}
+
+void ZedCameraOne::resetCudaBufferTransport()
+{
+  _cudaBufferActive = false;
+#ifdef FOUND_CUDA_BUFFER
+  _cudaBuffer.reset();
+#endif
+}
+
+void ZedCameraOne::publishGpuImage(
+  const sl::Mat & img, const adaptedImagePub & ipcPubImg,
+  const image_transport::Publisher & itPubImg,
+  const std::string & imgFrameId, const rclcpp::Time & stamp)
+{
+  sl_tools::BufferRoute route = sl_tools::getBufferRoute(ipcPubImg);
+  std::string err;
+
+#ifdef FOUND_CUDA_BUFFER
+  if (route.cuda && _cudaBuffer) {
+    auto msg = std::make_unique<sensor_msgs::msg::Image>();
+    msg->header.stamp = stamp;
+    msg->header.frame_id = imgFrameId;
+    if (_cudaBuffer->toImageMsg(img, *msg, err)) {
+      DEBUG_STREAM_VD("Publishing CUDA IMAGE message on " << ipcPubImg->get_topic_name());
+      ipcPubImg->publish(std::move(msg));
+    } else {
+      RCLCPP_WARN_STREAM_THROTTLE(
+        get_logger(), *get_clock(), 5000,
+        "Cannot publish CUDA data on '" << ipcPubImg->get_topic_name() << "': " << err
+                                        << ". Publishing CPU data.");
+      route.cpu = true;
+    }
+  } else
+#endif
+  {
+    route.cpu |= route.cuda;
+  }
+
+  // The compression plugins of image_transport require CPU data
+  const bool it_sub = itPubImg.getNumSubscribers() > 0;
+  if (!route.cpu && !it_sub) {
+    return;
+  }
+
+  stereolabs::StampedSlMat cpu_msg;
+  bool ok = false;
+#ifdef FOUND_CUDA_BUFFER
+  if (_cudaBuffer) {
+    ok = _cudaBuffer->download(img, cpu_msg.mat, err);
+  } else
+#endif
+  {
+    sl::ERROR_CODE sl_err = img.copyTo(cpu_msg.mat, sl::COPY_TYPE::GPU_CPU);
+    ok = (sl_err == sl::ERROR_CODE::SUCCESS);
+    err = sl::toString(sl_err).c_str();
+  }
+  if (!ok) {
+    RCLCPP_WARN_STREAM_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "Cannot copy the GPU data to CPU: " << err);
+    return;
+  }
+
+  if (it_sub) {
+    itPubImg.publish(sl_tools::imageToROSmsg(cpu_msg.mat, imgFrameId, stamp, false));
+  }
+
+  if (route.cpu) {
+    cpu_msg.frame_id = imgFrameId;
+    cpu_msg.stamp = stamp;
+    ipcPubImg->publish(std::move(cpu_msg));
+  }
+}
+// <---- `rosidl::Buffer` CUDA transport
 
 }

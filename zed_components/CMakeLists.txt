@@ -209,6 +209,21 @@ if(point_cloud_transport_FOUND)
   add_definitions(-DFOUND_POINT_CLOUD_TRANSPORT)
 endif()
 
+# Check `rosidl::Buffer` CUDA zero-copy transport availability (ROS 2 Lyrical and newer)
+find_package(rosidl_buffer QUIET)
+if(rosidl_buffer_FOUND)
+  find_package(cuda_buffer QUIET)
+  find_package(rosidl_buffer_backend_registry QUIET)
+  if(cuda_buffer_FOUND AND rosidl_buffer_backend_registry_FOUND)
+    list(APPEND DEPENDENCIES cuda_buffer)
+    list(APPEND DEPENDENCIES rosidl_buffer_backend_registry)
+    add_definitions(-DFOUND_CUDA_BUFFER)
+    message(" * rosidl::Buffer CUDA zero-copy transport is available")
+  else()
+    message(WARNING " * 'cuda_buffer' or 'rosidl_buffer_backend_registry' not found, rosidl::Buffer CUDA zero-copy transport will not be available.")
+  endif()
+endif()
+
 # Type Adaptation for sl::Mat <-> sensor_msgs::msg::Image
 # Intra-process subscribers can receive sl::Mat directly without serialization.
 # Requires rclcpp::TypeAdapter which is available from Humble onward.
@@ -277,6 +292,7 @@ set(SL_TOOLS_INC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/include/gnss_replay.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/include/sl_types.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/include/sl_type_adapter.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/include/sl_cuda_buffer.hpp
 )
 
 set(SL_TOOLS_SRC
@@ -284,6 +300,7 @@ set(SL_TOOLS_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/src/sl_win_avg.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/src/gnss_replay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/src/sl_types.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/src/sl_cuda_buffer.cpp
 )
 
 set(ZED_CAMERA_INC

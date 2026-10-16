@@ -23,6 +23,7 @@
 #include "sl_version.hpp"
 #include "sl_tools.hpp"
 #include "sl_types.hpp"
+#include "sl_cuda_buffer.hpp"
 #include "visibility_control.hpp"
 
 namespace stereolabs
@@ -152,6 +153,15 @@ protected:
   void publishCameraInfo(
     const camInfoPub & infoPub,
     camInfoMsgPtr & camInfoMsg, const rclcpp::Time & t);
+
+  // `rosidl::Buffer` CUDA transport for the images retrieved on GPU
+  void initCudaBufferTransport();
+  void resetCudaBufferTransport();
+  void publishGpuImage(
+    const sl::Mat & img, const adaptedImagePub & ipcPubImg,
+    const image_transport::Publisher & itPubImg,
+    const std::string & imgFrameId, const rclcpp::Time & stamp);
+
   bool publishSensorsData();
   void publishImuFrameAndTopic();
   bool publishSvoStatus(uint64_t frame_ts);
@@ -291,6 +301,16 @@ private:
   // If available, force disable NITROS usage for debugging and testing
   // purposes; otherwise, this is always true.
   bool _nitrosDisabled = false;
+
+  // `rosidl::Buffer` backend used to publish the images: 'cuda' (CUDA
+  // zero-copy, if available) or 'cpu'
+  std::string _bufferBackend = "cuda";
+  // True if the images are retrieved on GPU and published with CUDA-backed
+  // `rosidl::Buffer` messages
+  bool _cudaBufferActive = false;
+#ifdef FOUND_CUDA_BUFFER
+  std::unique_ptr<sl_tools::CudaBufferTransport> _cudaBuffer;
+#endif
   // <---- Debug variables
 
   // ----> QoS

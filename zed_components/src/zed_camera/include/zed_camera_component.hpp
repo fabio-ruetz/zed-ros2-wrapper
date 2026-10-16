@@ -25,6 +25,7 @@
 
 #include "sl_version.hpp"
 #include "sl_tools.hpp"
+#include "sl_cuda_buffer.hpp"
 #include "sl_types.hpp"
 #include "visibility_control.hpp"
 
@@ -278,6 +279,26 @@ protected:
     const camInfoPub & infoPub,
     camInfoMsgPtr & camInfoMsg, const rclcpp::Time & t);
 
+  // `rosidl::Buffer` CUDA transport for the data retrieved on GPU
+  void initCudaBufferTransport();
+  void resetCudaBufferTransport();
+  // CUDA stream for the retrieve functions of the ZED SDK
+  cudaStream_t getRetrieveStream(bool gpu) const;
+  bool publishCudaImage(
+    const sl::Mat & img, const adaptedImagePub & pubImg,
+    const std::string & imgFrameId, const rclcpp::Time & stamp);
+  void publishGpuImage(
+    const sl::Mat & img, const adaptedImagePub & ipcPubImg,
+    const image_transport::Publisher & itPubImg,
+    const std::string & imgFrameId, const rclcpp::Time & stamp);
+  void publishGpuStereoImages(
+    const sl::Mat & left, const sl::Mat & right,
+    const adaptedImagePub & ipcPubImg, const image_transport::Publisher & itPubImg,
+    const rclcpp::Time & t);
+  bool downloadGpuMat(const sl::Mat & gpu, sl::Mat & cpu);
+  void publishGpuPointCloud(const rclcpp::Time & stamp);
+  void publishCpuPointCloud(const rclcpp::Time & stamp);
+
   void publishDepthMapWithInfo(const sl::Mat & depth, const rclcpp::Time & t);
   void publishDisparityMap(const sl::Mat & disparity, const rclcpp::Time & t);
 
@@ -518,6 +539,16 @@ private:
   // If available, force disable NITROS usage for debugging and testing
   // purposes; otherwise, this is always true.
   bool _nitrosDisabled = true;
+
+  // `rosidl::Buffer` backend used to publish the images, depth maps and point
+  // clouds: 'cuda' (CUDA zero-copy, if available) or 'cpu'
+  std::string mBufferBackend = "cuda";
+  // True if the data are retrieved on GPU and published with CUDA-backed
+  // `rosidl::Buffer` messages
+  bool mCudaBufferActive = false;
+#ifdef FOUND_CUDA_BUFFER
+  std::unique_ptr<sl_tools::CudaBufferTransport> mCudaBuffer;
+#endif
 
   // Topic Enablers
 #if (ZED_SDK_MAJOR_VERSION * 10 + ZED_SDK_MINOR_VERSION) >= 51

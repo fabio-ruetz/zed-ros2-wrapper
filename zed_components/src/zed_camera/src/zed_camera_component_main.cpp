@@ -1259,6 +1259,17 @@ void ZedCamera::getGeneralParams()
     " * Asynchronous image retrieval: ");
 
   sl_tools::getParam(
+    shared_from_this(), "general.buffer_backend", mBufferBackend, mBufferBackend,
+    " * Buffer backend: ");
+  if (mBufferBackend != "cuda" && mBufferBackend != "cpu") {
+    RCLCPP_WARN_STREAM(
+      get_logger(),
+      "Not valid 'general.buffer_backend' value: '" << mBufferBackend
+                                                    << "'. Using 'cuda' instead.");
+    mBufferBackend = "cuda";
+  }
+
+  sl_tools::getParam(
     shared_from_this(), "general.enable_image_validity_check",
     mImageValidityCheck, mImageValidityCheck,
     " * Image Validity Check: ", false, 0, 10);
@@ -3989,6 +4000,9 @@ bool ZedCamera::startCamera()
     // <---- Initialize Fusion module
   }
 
+  // Prepare the CUDA transport before starting the threads that use it
+  initCudaBufferTransport();
+
   // Init and start threads
   initThreads();
 
@@ -4011,6 +4025,8 @@ void ZedCamera::closeCamera()
     saveAreaMemoryFile(mAreaMemoryFilePath);
     DEBUG_STREAM_COMM("Saved area memory on: " << mAreaMemoryFilePath);
   }
+
+  resetCudaBufferTransport();
 
   mZed->close();
   mZed.reset();

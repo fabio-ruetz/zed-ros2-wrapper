@@ -1478,7 +1478,8 @@ void ZedCamera::processVideoDepth()
 
     DEBUG_VD(" * [processVideoDepth] vd_lock -> try_lock");
     if (vd_lock.try_lock()) {
-      bool gpu = false;
+      // Retrieve on GPU the data published with the CUDA transport
+      bool gpu = mCudaBufferActive;
 #ifdef FOUND_ISAAC_ROS_NITROS
       if (!_nitrosDisabled) {
         gpu = true;
@@ -1561,7 +1562,8 @@ bool ZedCamera::retrieveLeftImage(bool gpu)
 #else
       sl::VIEW::LEFT,
 #endif
-      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol);
+      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol,
+      getRetrieveStream(gpu && _nitrosDisabled));
     if (ok) {
       mRgbSubscribed = true;
       DEBUG_STREAM_VD(" * Left image retrieved into " << (gpu ? "GPU" : "CPU") << " memory");
@@ -1583,7 +1585,8 @@ bool ZedCamera::retrieveLeftRawImage(bool gpu)
 #else
       sl::VIEW::LEFT_UNRECTIFIED,
 #endif
-      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol);
+      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol,
+      getRetrieveStream(gpu && _nitrosDisabled));
     if (ok) {
       DEBUG_STREAM_VD(" * Left raw image retrieved into " << (gpu ? "GPU" : "CPU") << " memory");
     }
@@ -1604,7 +1607,8 @@ bool ZedCamera::retrieveRightImage(bool gpu)
 #else
       sl::VIEW::RIGHT,
 #endif
-      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol);
+      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol,
+      getRetrieveStream(gpu && _nitrosDisabled));
     if (ok) {
       DEBUG_STREAM_VD(" * Right image retrieved into " << (gpu ? "GPU" : "CPU") << " memory");
     }
@@ -1625,7 +1629,8 @@ bool ZedCamera::retrieveRightRawImage(bool gpu)
 #else
       sl::VIEW::RIGHT_UNRECTIFIED,
 #endif
-      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol);
+      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol,
+      getRetrieveStream(gpu && _nitrosDisabled));
     if (ok) {
       DEBUG_STREAM_VD(" * Right raw image retrieved into " << (gpu ? "GPU" : "CPU") << " memory");
     }
@@ -1641,7 +1646,8 @@ bool ZedCamera::retrieveLeftGrayImage(bool gpu)
     bool ok = sl::ERROR_CODE::SUCCESS ==
       mZed->retrieveImage(
       mMatLeftGray, sl::VIEW::LEFT_GRAY,
-      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol);
+      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol,
+      getRetrieveStream(gpu && _nitrosDisabled));
     if (ok) {
       DEBUG_STREAM_VD(" * Left gray image retrieved into " << (gpu ? "GPU" : "CPU") << " memory");
     }
@@ -1657,7 +1663,8 @@ bool ZedCamera::retrieveLeftRawGrayImage(bool gpu)
     bool ok = sl::ERROR_CODE::SUCCESS ==
       mZed->retrieveImage(
       mMatLeftRawGray, sl::VIEW::LEFT_UNRECTIFIED_GRAY,
-      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol);
+      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol,
+      getRetrieveStream(gpu && _nitrosDisabled));
     if (ok) {
       DEBUG_STREAM_VD(
         " * Left gray raw image retrieved into " << (gpu ? "GPU" : "CPU") <<
@@ -1675,7 +1682,8 @@ bool ZedCamera::retrieveRightGrayImage(bool gpu)
     bool ok = sl::ERROR_CODE::SUCCESS ==
       mZed->retrieveImage(
       mMatRightGray, sl::VIEW::RIGHT_GRAY,
-      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol);
+      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol,
+      getRetrieveStream(gpu && _nitrosDisabled));
     if (ok) {
       DEBUG_STREAM_VD(" * Right gray image retrieved into " << (gpu ? "GPU" : "CPU") << " memory");
     }
@@ -1691,7 +1699,8 @@ bool ZedCamera::retrieveRightRawGrayImage(bool gpu)
     bool ok = sl::ERROR_CODE::SUCCESS ==
       mZed->retrieveImage(
       mMatRightRawGray, sl::VIEW::RIGHT_UNRECTIFIED_GRAY,
-      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol);
+      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol,
+      getRetrieveStream(gpu && _nitrosDisabled));
     if (ok) {
       DEBUG_STREAM_VD(
         " * Right gray raw image retrieved into " << (gpu ? "GPU" : "CPU") << " memory");
@@ -1708,7 +1717,8 @@ bool ZedCamera::retrieveDepthMap(bool gpu)
     bool ok = sl::ERROR_CODE::SUCCESS ==
       mZed->retrieveMeasure(
       mMatDepth, sl::MEASURE::DEPTH,
-      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol);
+      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol,
+      getRetrieveStream(gpu && _nitrosDisabled));
     if (ok) {
       DEBUG_STREAM_VD(" * Depth map retrieved into " << (gpu ? "GPU" : "CPU") << " memory");
     }
@@ -1729,7 +1739,8 @@ bool ZedCamera::retrieveDepthImage(bool gpu)
 #else
       sl::VIEW::DEPTH,
 #endif
-      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol);
+      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol,
+      getRetrieveStream(gpu && _nitrosDisabled));
     if (ok) {
       DEBUG_STREAM_VD(
         " * Depth image retrieved into " << (gpu ? "GPU" : "CPU") << " memory");
@@ -1762,7 +1773,8 @@ bool ZedCamera::retrieveConfidence(bool gpu)
     bool ok = sl::ERROR_CODE::SUCCESS ==
       mZed->retrieveMeasure(
       mMatConf, sl::MEASURE::CONFIDENCE,
-      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol);
+      gpu ? sl::MEM::GPU : sl::MEM::CPU, mMatResol,
+      getRetrieveStream(gpu && _nitrosDisabled));
     if (ok) {
       DEBUG_STREAM_VD(" * Confidence map retrieved into " << (gpu ? "GPU" : "CPU") << " memory");
     }
@@ -2154,6 +2166,10 @@ void ZedCamera::publishStereoImages(const rclcpp::Time & t)
 {
   if (mStereoSubCount > 0) {
     DEBUG_STREAM_VD(" * mStereoSubCount: " << mStereoSubCount);
+    if (mMatLeft.getMemoryType() == sl::MEM::GPU) {
+      publishGpuStereoImages(mMatLeft, mMatRight, mPubIpcStereo, mPubStereo, t);
+      return;
+    }
     auto combined = sl_tools::imagesToROSmsg(
       mMatLeft, mMatRight, mCenterFrameId, t, mUsePubTimestamps);
     DEBUG_STREAM_VD(" * Publishing SIDE-BY-SIDE message");
@@ -2180,6 +2196,10 @@ void ZedCamera::publishStereoRawImages(const rclcpp::Time & t)
 {
   if (mStereoRawSubCount > 0) {
     DEBUG_STREAM_VD(" * mStereoRawSubCount: " << mStereoRawSubCount);
+    if (mMatLeftRaw.getMemoryType() == sl::MEM::GPU) {
+      publishGpuStereoImages(mMatLeftRaw, mMatRightRaw, mPubIpcRawStereo, mPubRawStereo, t);
+      return;
+    }
     auto combined = sl_tools::imagesToROSmsg(
       mMatLeftRaw, mMatRightRaw, mCenterFrameId, t, mUsePubTimestamps);
     DEBUG_STREAM_VD(" * Publishing SIDE-BY-SIDE RAW message");
@@ -2342,6 +2362,12 @@ void ZedCamera::publishImageWithInfo(
     publishCameraInfo(infoPub, camInfoMsg, stamp);
     publishCameraInfo(infoPubTrans, camInfoMsg, stamp);
 
+    // Image retrieved on GPU for the CUDA transport
+    if (img.getMemoryType() == sl::MEM::GPU) {
+      publishGpuImage(img, ipcPubImg, itPubImg, imgFrameId, stamp);
+      return;
+    }
+
     // TypeAdapter path: handles raw inter-process (auto-converts to Image)
     // and intra-process zero-copy (delivers StampedSlMat directly)
     if (ipcPubImg && ipcPubImg->get_subscription_count() > 0) {
@@ -2451,8 +2477,43 @@ void ZedCamera::publishDepthMapWithInfo(
   mLeftCamInfoMsg->header.stamp = mUsePubTimestamps ? get_clock()->now() : t;
 
   if (_nitrosDisabled) {
+    // CPU depth data used by the CPU publishers
+    const sl::Mat * depth_cpu = &depth;
+    sl::Mat depth_download;
+    // True if the depth map has been sent as a CUDA-backed message
+    bool cuda_sent = false;
+
+    if (depth.getMemoryType() == sl::MEM::GPU) {
+      // Depth map retrieved on GPU for the CUDA transport
+      bool cpu_required = mPubDepth.getNumSubscribers() > 0;
+      if (mOpenniDepthMode) {
+        // The OpenNI conversion is performed on CPU
+        cpu_required |= mPubIpcDepth && mPubIpcDepth->get_subscription_count() > 0;
+      } else {
+        sl_tools::BufferRoute route = sl_tools::getBufferRoute(mPubIpcDepth);
+        if (route.cuda) {
+          cuda_sent = publishCudaImage(
+            depth, mPubIpcDepth, mDepthOptFrameId,
+            mUsePubTimestamps ? get_clock()->now() : t);
+        }
+        cpu_required |= route.cpu || (route.cuda && !cuda_sent);
+      }
+
+      if (!cpu_required) {
+        publishCameraInfo(mPubDepthCamInfo, mLeftCamInfoMsg, t);
+        publishCameraInfo(mPubDepthCamInfoTrans, mLeftCamInfoMsg, t);
+        return;
+      }
+      if (!downloadGpuMat(depth, depth_download)) {
+        return;
+      }
+      depth_cpu = &depth_download;
+    }
+
     if (!mOpenniDepthMode) {
-      auto depth_img = sl_tools::imageToROSmsg(depth, mDepthOptFrameId, t, mUsePubTimestamps);
+      auto depth_img = sl_tools::imageToROSmsg(
+        *depth_cpu, mDepthOptFrameId, t,
+        mUsePubTimestamps);
       DEBUG_STREAM_VD(
         " * Publishing DEPTH message: " << t.nanoseconds()
                                         << " nsec");
@@ -2461,7 +2522,7 @@ void ZedCamera::publishDepthMapWithInfo(
         publishCameraInfo(mPubDepthCamInfoTrans, mLeftCamInfoMsg, t);
 
         // TypeAdapter publisher handles raw + zero-copy
-        if (mPubIpcDepth && mPubIpcDepth->get_subscription_count() > 0) {
+        if (!cuda_sent && mPubIpcDepth && mPubIpcDepth->get_subscription_count() > 0) {
           // Clone for IPC since depth_img may be moved to compression below
           auto ipc_copy = std::make_unique<sensor_msgs::msg::Image>(*depth_img);
           mPubIpcDepth->publish(std::move(ipc_copy));
@@ -2483,8 +2544,8 @@ void ZedCamera::publishDepthMapWithInfo(
 
     openniDepthMsg->header.stamp = mUsePubTimestamps ? get_clock()->now() : t;
     openniDepthMsg->header.frame_id = mDepthOptFrameId;
-    openniDepthMsg->height = depth.getHeight();
-    openniDepthMsg->width = depth.getWidth();
+    openniDepthMsg->height = depth_cpu->getHeight();
+    openniDepthMsg->width = depth_cpu->getWidth();
 
     int num = 1;  // for endianness detection
     openniDepthMsg->is_bigendian = !(*reinterpret_cast<char *>(&num) == 1);
@@ -2498,7 +2559,7 @@ void ZedCamera::publishDepthMapWithInfo(
     uint16_t * data = reinterpret_cast<uint16_t *>(&openniDepthMsg->data[0]);
 
     int dataSize = openniDepthMsg->width * openniDepthMsg->height;
-    sl::float1 * depthDataPtr = depth.getPtr<sl::float1>();
+    sl::float1 * depthDataPtr = depth_cpu->getPtr<sl::float1>();
 
     for (int i = 0; i < dataSize; i++) {
       *(data++) = static_cast<uint16_t>(
@@ -2711,18 +2772,55 @@ void ZedCamera::processPointCloud()
         " * [processPointCloud] Retrieving point cloud size: " << mPcResol.width << "x" <<
           mPcResol.height);
       sl::ERROR_CODE pc_err;
-#if (ZED_SDK_MAJOR_VERSION * 10 + ZED_SDK_MINOR_VERSION) >= 53
-      if (mVoxelPointCloud) {
-        // Voxelized clouds have a dynamic point count, so the data is copied
-        // into the (re)sized message at publish time.
-        pc_err = mZed->retrieveVoxelMeasure(
-          mMatCloud, sl::MEASURE::XYZBGRA, sl::MEM::CPU, mVoxelParams);
+      // Retrieve on GPU for the CUDA transport: the point cloud is copied to
+      // CPU at publish time if required.
+      bool gpu_cloud = mCudaBufferActive;
+#if (ZED_SDK_MAJOR_VERSION * 10 + ZED_SDK_MINOR_VERSION) < 55
+      // Retrieving the voxelized cloud on the transport stream requires
+      // ZED SDK >= 5.5
+      gpu_cloud = gpu_cloud && !mVoxelPointCloud;
+#endif
+      if (gpu_cloud) {
+#if (ZED_SDK_MAJOR_VERSION * 10 + ZED_SDK_MINOR_VERSION) >= 55
+        if (mVoxelPointCloud) {
+          pc_err = mZed->retrieveVoxelMeasure(
+            mMatCloud, sl::MEASURE::XYZBGRA, sl::MEM::GPU, mVoxelParams,
+            getRetrieveStream(true));
+        } else {
+          pc_err = mZed->retrieveMeasure(
+            mMatCloud, sl::MEASURE::XYZBGRA, sl::MEM::GPU, mPcResol,
+            getRetrieveStream(true));
+        }
+#else
+        pc_err = mZed->retrieveMeasure(
+          mMatCloud, sl::MEASURE::XYZBGRA, sl::MEM::GPU, mPcResol,
+          getRetrieveStream(true));
+#endif
       } else {
-        // Zero-copy: size the reusable message for the current resolution and
-        // bind the SDK matrix to its memory so retrieveMeasure writes the
-        // XYZBGRA cloud straight into mPcMsg.data (the SDK float4 layout
-        // matches x,y,z,rgb), avoiding a full-cloud memcpy and a duplicate
-        // CPU buffer at publish time.
+#if (ZED_SDK_MAJOR_VERSION * 10 + ZED_SDK_MINOR_VERSION) >= 53
+        if (mVoxelPointCloud) {
+          // Voxelized clouds have a dynamic point count, so the data is copied
+          // into the (re)sized message at publish time.
+          pc_err = mZed->retrieveVoxelMeasure(
+            mMatCloud, sl::MEASURE::XYZBGRA, sl::MEM::CPU, mVoxelParams);
+        } else {
+          // Zero-copy: size the reusable message for the current resolution and
+          // bind the SDK matrix to its memory so retrieveMeasure writes the
+          // XYZBGRA cloud straight into mPcMsg.data (the SDK float4 layout
+          // matches x,y,z,rgb), avoiding a full-cloud memcpy and a duplicate
+          // CPU buffer at publish time.
+          if (prepareCloudMsg(mPcResol.width, mPcResol.height)) {
+            mMatCloud = sl::Mat(
+              mPcResol.width, mPcResol.height, sl::MAT_TYPE::F32_C4,
+              reinterpret_cast<sl::uchar1 *>(mPcMsg.data.data()),
+              mPcResol.width * sizeof(sl::float4), sl::MEM::CPU);
+          }
+          pc_err = mZed->retrieveMeasure(
+            mMatCloud, sl::MEASURE::XYZBGRA, sl::MEM::CPU, mPcResol);
+        }
+#else
+        // Zero-copy retrieve into the reusable message buffer (see the
+        // SDK >= 5.3 branch above for details).
         if (prepareCloudMsg(mPcResol.width, mPcResol.height)) {
           mMatCloud = sl::Mat(
             mPcResol.width, mPcResol.height, sl::MAT_TYPE::F32_C4,
@@ -2731,19 +2829,8 @@ void ZedCamera::processPointCloud()
         }
         pc_err = mZed->retrieveMeasure(
           mMatCloud, sl::MEASURE::XYZBGRA, sl::MEM::CPU, mPcResol);
-      }
-#else
-      // Zero-copy retrieve into the reusable message buffer (see the
-      // SDK >= 5.3 branch above for details).
-      if (prepareCloudMsg(mPcResol.width, mPcResol.height)) {
-        mMatCloud = sl::Mat(
-          mPcResol.width, mPcResol.height, sl::MAT_TYPE::F32_C4,
-          reinterpret_cast<sl::uchar1 *>(mPcMsg.data.data()),
-          mPcResol.width * sizeof(sl::float4), sl::MEM::CPU);
-      }
-      pc_err = mZed->retrieveMeasure(
-        mMatCloud, sl::MEASURE::XYZBGRA, sl::MEM::CPU, mPcResol);
 #endif
+      }
       if (pc_err != sl::ERROR_CODE::SUCCESS) {
         RCLCPP_WARN_STREAM(
           get_logger(),
@@ -2825,11 +2912,6 @@ void ZedCamera::publishPointCloud()
 {
   sl_tools::StopWatch pcElabTimer(get_clock());
 
-  int width = mMatCloud.getWidth();
-  int height = mMatCloud.getHeight();
-
-  int ptsCount = width * height;
-
   rclcpp::Time stamp;
   if (mSvoMode) {
     stamp = mUsePubTimestamps ? get_clock()->now() : mFrameTimestamp;
@@ -2854,7 +2936,46 @@ void ZedCamera::publishPointCloud()
   mLastTs_pc = stamp;
   // <--- Check timestamp
 
-  if (mVoxelPointCloud) {
+  if (mMatCloud.getMemoryType() == sl::MEM::GPU) {
+    // Point cloud retrieved on GPU for the CUDA transport
+    publishGpuPointCloud(stamp);
+  } else {
+    publishCpuPointCloud(stamp);
+  }
+
+  // Publish freq calculation
+  double mean = mPcPeriodMean_sec->addValue(mPcFreqTimer.toc());
+  mPcFreqTimer.tic();
+
+  // Point cloud elaboration time
+  mPcProcMean_sec->addValue(pcElabTimer.toc());
+  DEBUG_STREAM_PC(" * [publishPointCloud] Point cloud freq: " << 1. / mean);
+}
+
+void ZedCamera::publishCpuPointCloud(const rclcpp::Time & stamp)
+{
+  int width = mMatCloud.getWidth();
+  int height = mMatCloud.getHeight();
+  int ptsCount = width * height;
+
+  if (mMatCloud.getMemoryType() == sl::MEM::GPU) {
+    // Point cloud retrieved on GPU for the CUDA transport: copy it into the
+    // reusable message
+    prepareCloudMsg(width, height);
+    std::string err = "CUDA transport not initialized";
+    bool ok = false;
+#ifdef FOUND_CUDA_BUFFER
+    if (mCudaBuffer) {
+      ok = mCudaBuffer->download(mMatCloud, mPcMsg.data.data(), mPcMsg.row_step, err);
+    }
+#endif
+    if (!ok) {
+      RCLCPP_WARN_STREAM_THROTTLE(
+        get_logger(), *get_clock(), 5000,
+        "Cannot copy the GPU point cloud to CPU: " << err);
+      return;
+    }
+  } else if (mVoxelPointCloud) {
     // Voxelized clouds have a dynamic point count: (re)size the reusable
     // message and copy the data in.
     prepareCloudMsg(width, height);
@@ -2888,14 +3009,6 @@ void ZedCamera::publishPointCloud()
     DEBUG_STREAM_PC(" * [publishPointCloud] Message publishing generic exception");
   }
 #endif
-
-  // Publish freq calculation
-  double mean = mPcPeriodMean_sec->addValue(mPcFreqTimer.toc());
-  mPcFreqTimer.tic();
-
-  // Point cloud elaboration time
-  mPcProcMean_sec->addValue(pcElabTimer.toc());
-  DEBUG_STREAM_PC(" * [publishPointCloud] Point cloud freq: " << 1. / mean);
 }
 
 void ZedCamera::threadFunc_videoDepthElab()
@@ -3599,5 +3712,328 @@ bool ZedCamera::handleDepthParams(
   }
   return false;
 }
+
+// ----> `rosidl::Buffer` CUDA transport
+
+void ZedCamera::initCudaBufferTransport()
+{
+  mCudaBufferActive = false;
+
+  if (mBufferBackend != "cuda") {
+    RCLCPP_INFO(get_logger(), " * Buffer transport: CPU [general.buffer_backend: 'cpu']");
+    return;
+  }
+
+#ifdef FOUND_CUDA_BUFFER
+  const std::string rmw = rmw_get_implementation_identifier();
+  if (rmw != sl_tools::CUDA_BUFFER_RMW) {
+    RCLCPP_INFO_STREAM(
+      get_logger(),
+      " * Buffer transport: CPU [CUDA zero-copy not supported by '" << rmw
+                                                                    << "', requires '"
+                                                                    << sl_tools::CUDA_BUFFER_RMW
+                                                                    << "']");
+    return;
+  }
+
+  std::vector<std::string> installed;
+  if (!sl_tools::isCudaBufferBackendInstalled(installed)) {
+    std::string list;
+    for (const auto & name : installed) {
+      list += (list.empty() ? "" : ", ") + name;
+    }
+    RCLCPP_WARN_STREAM(
+      get_logger(),
+      " * Buffer transport: CPU [the '" << sl_tools::CUDA_BUFFER_BACKEND
+                                        << "' buffer backend plugin is not installed. "
+                                        << "Installed backends: [" << list
+                                        << "]. Install the 'cuda_buffer_backend' package "
+                                        << "to enable the CUDA zero-copy transport]");
+    return;
+  }
+
+  mCudaBuffer = std::make_unique<sl_tools::CudaBufferTransport>();
+  std::string err;
+  // The data are retrieved on the transport stream (see `getRetrieveStream()`)
+  if (!mCudaBuffer->init(mZed->getCUDAContext(), mZed->getCUDAStream(), true, err)) {
+    RCLCPP_WARN_STREAM(
+      get_logger(),
+      " * Buffer transport: CPU [CUDA zero-copy initialization failed: " << err << "]");
+    mCudaBuffer.reset();
+    return;
+  }
+
+  mCudaBufferActive = true;
+  RCLCPP_INFO(
+    get_logger(),
+    " * Buffer transport: CUDA zero-copy [automatic CPU fallback for subscribers "
+    "that cannot use it]");
+  if (mQos.durability() == rclcpp::DurabilityPolicy::TransientLocal) {
+    RCLCPP_WARN(
+      get_logger(),
+      "   The CUDA zero-copy transport does not support the TRANSIENT_LOCAL "
+      "durability: CPU data will be published");
+  }
+#else
+  RCLCPP_INFO(
+    get_logger(),
+    " * Buffer transport: CPU [CUDA zero-copy not available: it requires ROS 2 "
+    "Lyrical or newer with the 'cuda_buffer' package]");
+#endif
+}
+
+cudaStream_t ZedCamera::getRetrieveStream(bool gpu) const
+{
+#ifdef FOUND_CUDA_BUFFER
+  // The images published with NITROS are copied on the legacy default
+  // stream: the callers pass `gpu=false` for them to keep the SDK default.
+  if (gpu && mCudaBufferActive && mCudaBuffer) {
+    return mCudaBuffer->stream();
+  }
+#else
+  (void)gpu;
+#endif
+  return 0;
+}
+
+void ZedCamera::resetCudaBufferTransport()
+{
+  mCudaBufferActive = false;
+#ifdef FOUND_CUDA_BUFFER
+  mCudaBuffer.reset();
+#endif
+}
+
+bool ZedCamera::downloadGpuMat(const sl::Mat & gpu, sl::Mat & cpu)
+{
+  std::string err;
+  bool ok = false;
+#ifdef FOUND_CUDA_BUFFER
+  if (mCudaBuffer) {
+    ok = mCudaBuffer->download(gpu, cpu, err);
+  } else
+#endif
+  {
+    sl::ERROR_CODE sl_err = gpu.copyTo(cpu, sl::COPY_TYPE::GPU_CPU);
+    ok = (sl_err == sl::ERROR_CODE::SUCCESS);
+    err = sl::toString(sl_err).c_str();
+  }
+
+  if (!ok) {
+    RCLCPP_WARN_STREAM_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "Cannot copy the GPU data to CPU: " << err);
+  }
+  return ok;
+}
+
+bool ZedCamera::publishCudaImage(
+  const sl::Mat & img, const adaptedImagePub & pubImg,
+  const std::string & imgFrameId, const rclcpp::Time & stamp)
+{
+#ifdef FOUND_CUDA_BUFFER
+  if (!mCudaBuffer || !pubImg) {
+    return false;
+  }
+
+  auto msg = std::make_unique<sensor_msgs::msg::Image>();
+  msg->header.stamp = stamp;
+  msg->header.frame_id = imgFrameId;
+
+  std::string err;
+  if (!mCudaBuffer->toImageMsg(img, *msg, err)) {
+    RCLCPP_WARN_STREAM_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "Cannot publish CUDA data on '" << pubImg->get_topic_name() << "': " << err
+                                      << ". Publishing CPU data.");
+    return false;
+  }
+
+  DEBUG_STREAM_VD(" * Publishing CUDA IMAGE message on " << pubImg->get_topic_name());
+  pubImg->publish(std::move(msg));
+  return true;
+#else
+  (void)img;
+  (void)pubImg;
+  (void)imgFrameId;
+  (void)stamp;
+  return false;
+#endif
+}
+
+void ZedCamera::publishGpuImage(
+  const sl::Mat & img, const adaptedImagePub & ipcPubImg,
+  const image_transport::Publisher & itPubImg,
+  const std::string & imgFrameId, const rclcpp::Time & stamp)
+{
+  sl_tools::BufferRoute route = sl_tools::getBufferRoute(ipcPubImg);
+  if (route.cuda && !publishCudaImage(img, ipcPubImg, imgFrameId, stamp)) {
+    route.cpu = true;
+  }
+
+  // The compression plugins of image_transport require CPU data
+  const bool it_sub = itPubImg.getNumSubscribers() > 0;
+  if (!route.cpu && !it_sub) {
+    return;
+  }
+
+  stereolabs::StampedSlMat cpu_msg;
+  if (!downloadGpuMat(img, cpu_msg.mat)) {
+    return;
+  }
+
+  if (it_sub) {
+    itPubImg.publish(sl_tools::imageToROSmsg(cpu_msg.mat, imgFrameId, stamp, false));
+  }
+
+  if (route.cpu) {
+    cpu_msg.frame_id = imgFrameId;
+    cpu_msg.stamp = stamp;
+    ipcPubImg->publish(std::move(cpu_msg));
+  }
+}
+
+void ZedCamera::publishGpuStereoImages(
+  const sl::Mat & left, const sl::Mat & right,
+  const adaptedImagePub & ipcPubImg, const image_transport::Publisher & itPubImg,
+  const rclcpp::Time & t)
+{
+  const auto stamp = mUsePubTimestamps ? get_clock()->now() : t;
+  DEBUG_STREAM_VD(" * Publishing SIDE-BY-SIDE message from GPU data");
+  try {
+    sl_tools::BufferRoute route = sl_tools::getBufferRoute(ipcPubImg);
+#ifdef FOUND_CUDA_BUFFER
+    if (route.cuda && mCudaBuffer) {
+      auto msg = std::make_unique<sensor_msgs::msg::Image>();
+      msg->header.stamp = stamp;
+      msg->header.frame_id = mCenterFrameId;
+      std::string err;
+      if (mCudaBuffer->toStereoImageMsg(left, right, *msg, err)) {
+        ipcPubImg->publish(std::move(msg));
+      } else {
+        RCLCPP_WARN_STREAM_THROTTLE(
+          get_logger(), *get_clock(), 5000,
+          "Cannot publish CUDA data on '" << ipcPubImg->get_topic_name() << "': " << err
+                                          << ". Publishing CPU data.");
+        route.cpu = true;
+      }
+    } else
+#endif
+    {
+      route.cpu |= route.cuda;
+    }
+
+    // The compression plugins of image_transport require CPU data
+    const bool it_sub = itPubImg.getNumSubscribers() > 0;
+    if (!route.cpu && !it_sub) {
+      return;
+    }
+
+    sl::Mat left_cpu, right_cpu;
+    if (!downloadGpuMat(left, left_cpu) || !downloadGpuMat(right, right_cpu)) {
+      return;
+    }
+    auto combined = sl_tools::imagesToROSmsg(left_cpu, right_cpu, mCenterFrameId, stamp, false);
+
+    if (route.cpu) {
+      if (it_sub) {
+        ipcPubImg->publish(std::make_unique<sensor_msgs::msg::Image>(*combined));
+      } else {
+        ipcPubImg->publish(std::move(combined));
+      }
+    }
+    if (it_sub) {
+      itPubImg.publish(std::move(combined));
+    }
+  } catch (std::system_error & e) {
+    DEBUG_STREAM_COMM(" * Message publishing exception: " << e.what());
+  } catch (...) {
+    DEBUG_STREAM_COMM(" * Message publishing generic exception: ");
+  }
+}
+
+void ZedCamera::publishGpuPointCloud(const rclcpp::Time & stamp)
+{
+#ifdef FOUND_CUDA_BUFFER
+  // ----> Find the publisher of the uncompressed point cloud
+  pointcloudPub raw_pub;
+  // Subscribers of the compressed point cloud transports
+  size_t compressed_sub_count = 0;
+#ifdef FOUND_POINT_CLOUD_TRANSPORT
+  try {
+    for (const auto & [transport, pub] : mPubCloud.getPublishers()) {
+      if (transport == "raw") {
+        raw_pub = std::dynamic_pointer_cast<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>>(pub);
+      } else if (pub) {
+        compressed_sub_count += pub->get_subscription_count();
+      }
+    }
+  } catch (...) {
+    rcutils_reset_error();
+    DEBUG_STREAM_PC(" * [publishGpuPointCloud] Exception while counting subscribers");
+    return;
+  }
+#else
+  raw_pub = mPubCloud;
+#endif
+  // <---- Find the publisher of the uncompressed point cloud
+
+  sl_tools::BufferRoute route = sl_tools::getBufferRoute(raw_pub);
+  if (route.cuda && compressed_sub_count > 0) {
+    // point_cloud_transport publishes the same CPU message on all the
+    // transports: the uncompressed one cannot receive a CUDA-backed message
+    // without being published twice.
+    route.cuda = false;
+    route.cpu = true;
+  }
+
+  if (route.cuda && mCudaBuffer) {
+    auto msg = std::make_unique<sensor_msgs::msg::PointCloud2>();
+    msg->header.stamp = stamp;
+    msg->header.frame_id = mPointCloudFrameId;
+    int val = 1;
+    msg->is_bigendian = !(*reinterpret_cast<char *>(&val) == 1);
+    msg->is_dense = false;
+
+    // Set the fields with an empty cloud to not allocate CPU memory
+    sensor_msgs::PointCloud2Modifier modifier(*msg);
+    modifier.setPointCloud2Fields(
+      4, "x", 1, sensor_msgs::msg::PointField::FLOAT32, "y", 1,
+      sensor_msgs::msg::PointField::FLOAT32, "z", 1,
+      sensor_msgs::msg::PointField::FLOAT32, "rgb", 1,
+      sensor_msgs::msg::PointField::FLOAT32);
+    msg->width = mMatCloud.getWidth();
+    msg->height = mMatCloud.getHeight();
+    msg->row_step = msg->width * msg->point_step;
+
+    std::string err;
+    if (mCudaBuffer->toPointCloudData(mMatCloud, *msg, err)) {
+      DEBUG_PC(" * [publishGpuPointCloud] Publishing CUDA POINT CLOUD message");
+      try {
+        raw_pub->publish(std::move(msg));
+      } catch (std::system_error & e) {
+        DEBUG_STREAM_PC(" * [publishGpuPointCloud] Message publishing exception: " << e.what());
+      } catch (...) {
+        DEBUG_STREAM_PC(" * [publishGpuPointCloud] Message publishing generic exception");
+      }
+    } else {
+      RCLCPP_WARN_STREAM_THROTTLE(
+        get_logger(), *get_clock(), 5000,
+        "Cannot publish CUDA data on '" << raw_pub->get_topic_name() << "': " << err
+                                        << ". Publishing CPU data.");
+      route.cpu = true;
+    }
+  } else {
+    route.cpu |= route.cuda;
+  }
+
+  if (route.cpu || compressed_sub_count > 0) {
+    publishCpuPointCloud(stamp);
+  }
+#else
+  publishCpuPointCloud(stamp);
+#endif
+}
+// <---- `rosidl::Buffer` CUDA transport
 
 } // namespace stereolabs

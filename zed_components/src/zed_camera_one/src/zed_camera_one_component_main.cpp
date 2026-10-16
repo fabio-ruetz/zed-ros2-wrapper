@@ -167,6 +167,7 @@ void ZedCameraOne::closeCamera()
   }
 
   RCLCPP_INFO(get_logger(), "=== CLOSING CAMERA ===");
+  resetCudaBufferTransport();
   _zed->close();
   _zed.reset();
   RCLCPP_INFO(get_logger(), "=== CAMERA CLOSED ===");
@@ -615,6 +616,17 @@ void ZedCameraOne::getCameraInfoParams()
   }
   sl_tools::getParam(
     shared_from_this(), "general.gpu_id", _gpuId, _gpuId, " * GPU ID: ", false, -1, 256);
+
+  sl_tools::getParam(
+    shared_from_this(), "general.buffer_backend", _bufferBackend, _bufferBackend,
+    " * Buffer backend: ");
+  if (_bufferBackend != "cuda" && _bufferBackend != "cpu") {
+    RCLCPP_WARN_STREAM(
+      get_logger(),
+      "Not valid 'general.buffer_backend' value: '" << _bufferBackend
+                                                    << "'. Using 'cuda' instead.");
+    _bufferBackend = "cuda";
+  }
 }
 
 void ZedCameraOne::getResolutionParams()
@@ -1074,6 +1086,10 @@ bool ZedCameraOne::startCamera()
   initPublishers();
   initializeTimestamp();
   initializeDiagnosticStatistics();
+
+  // Prepare the CUDA transport before starting the grab thread that uses it
+  initCudaBufferTransport();
+
   initThreadsAndTimers();
 
   return true;

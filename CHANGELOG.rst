@@ -1,8 +1,9 @@
 LATEST CHANGES
 ==============
 
-v5.5.1-dev
+v5.6.0-dev
 ----------
+- Added the CUDA zero-copy transport for ROS 2 Lyrical and newer (stereo and mono). The images, depth maps, confidence maps and point clouds now stay in GPU memory and are shared without copies with the subscribers on the same host and GPU that accept the `cuda` `rosidl::Buffer` backend. All the other subscribers (RViz2, `ros2 bag`, Python nodes, other hosts, intra-process subscribers, compressed transports) automatically receive the standard CPU data, so no change is required on their side. Enabled by default with the new `general.buffer_backend` parameter (`cuda` default, `cpu`); it falls back to CPU, with a log message, when the `cuda_buffer` and `cuda_buffer_backend` packages are not installed or the RMW is not `rmw_fastrtps_cpp`. The topics published with NITROS are unchanged. Measured with a ZED 2i (HD720 @ 60 FPS) on an AGX Thor: point cloud received at 10 Hz instead of 4-6 Hz by a CUDA subscriber in another process, image publishing with 7-22% less CPU and ~2 ms less latency; CPU-only subscribers are not affected.
 - Fixed the stereo node aborting with `can't compare times with different time sources` when `sensors.sensors_image_sync` is enabled on a non-ZED camera model. `handleVideoDepthPublishing()` compared its publish stamp against `TIMEZERO_ROS`, but when `publishVideoDepth()` had no new data to publish it left the stamp default-constructed with `RCL_SYSTEM_TIME`, so the comparison threw and the uncaught exception took down the component container.
 - Added the `depth.publish_depth_image` parameter (default `false`) to publish the colorized depth visualization (`sl::VIEW::DEPTH`) on `~/image/depth_image`, separate from the raw depth measurement already published on `~/depth/depth_registered`. Like the other image topics, it follows `video.enable_24bit_output` (BGR 24-bit or BGRA 32-bit), and is only advertised if enabled and only retrieved/published while a node subscribes to it.
 - Removed the folder `urdf` because it now belongs to the `zed_description` package
