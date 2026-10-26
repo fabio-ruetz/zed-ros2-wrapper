@@ -6096,6 +6096,9 @@ void ZedCamera::publishImuMessages(
     imuRawMsg->header.stamp = mUsePubTimestamps ? get_clock()->now() : ts_imu;
     imuRawMsg->header.frame_id = mImuFrameId;
 
+    // No orientation estimate in raw data (REP-145)
+    imuRawMsg->orientation_covariance[0] = -1.0;
+
     imuRawMsg->angular_velocity.x =
       sens_data.imu.angular_velocity_uncalibrated[0] * DEG2RAD;
     imuRawMsg->angular_velocity.y =

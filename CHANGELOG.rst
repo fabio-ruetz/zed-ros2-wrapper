@@ -9,6 +9,7 @@ v5.6.0-dev
 - Removed the folder `urdf` because it now belongs to the `zed_description` package
 - Fix optical_offset_x for different camera models
 - Fixed the deprecated `status` field of `PosTrackStatus` on `~/pose/status`, which was always published as `0` (read as `SEARCHING`) since the GEN_3 status fields were introduced. It now carries the positional tracking state returned by the ZED SDK (`sl::POSITIONAL_TRACKING_STATE`: `SEARCHING`, `OK`, `OFF`, `FPS_TOO_LOW`, `SEARCHING_FLOOR_PLANE`, `UNAVAILABLE`) for code still relying on it. New code should use `odometry_status` and `spatial_memory_status`.
+- Fixed `~/imu/data_raw` (stereo and mono) not flagging its missing orientation as REP-145 requires: `orientation_covariance[0]` is now `-1`, so consumers such as `robot_localization` ignore the orientation field instead of reading the all-zero covariance as an exactly known orientation.
 - Fixed `pose_confidence` on `~/pose/status` being able to wrap around in the `uint8` field: the value is now clamped to the documented [0,100] range.
 
 v5.5.0
