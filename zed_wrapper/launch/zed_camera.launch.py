@@ -398,6 +398,12 @@ def launch_setup(context, *args, **kwargs):
             # Foxy does not support the isolated mode
             container_exec = 'component_container'
             arguments_val = ['--ros-args', '--log-level', 'info']
+        elif distro >= 'lyrical':
+            # `component_container_isolated` is deprecated since Lyrical: the
+            # distributions are in alphabetical order
+            container_exec = 'component_container'
+            arguments_val = ['--executor-type', 'multi-threaded', '--isolated',
+                             '--ros-args', '--log-level', 'info']
         else:
             container_exec = 'component_container_isolated'
             arguments_val = ['--use_multi_threaded_executor',
