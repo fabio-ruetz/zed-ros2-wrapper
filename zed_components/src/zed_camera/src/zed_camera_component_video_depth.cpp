@@ -3744,8 +3744,12 @@ void ZedCamera::initCudaBufferTransport()
       " * Buffer transport: CPU [the '" << sl_tools::CUDA_BUFFER_BACKEND
                                         << "' buffer backend plugin is not installed. "
                                         << "Installed backends: [" << list
-                                        << "]. Install the 'cuda_buffer_backend' package "
-                                        << "to enable the CUDA zero-copy transport]");
+                                        << "]. Build the 'cuda_buffer_backend' package from "
+                                        << "source in your workspace "
+                                        << "(https://github.com/ros2/rosidl_buffer_backends) "
+                                        << "to enable the CUDA zero-copy transport. Do not "
+                                        << "install its Debian package: it is built for the "
+                                        << "CUDA 12 runtime and the NVIDIA desktop drivers]");
     return;
   }
 
