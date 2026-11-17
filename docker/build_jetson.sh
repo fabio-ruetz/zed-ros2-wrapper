@@ -52,8 +52,8 @@ require_cmd docker
 # --- Defaults ----------------------------------------------------------------
 # Default JetPack 6.2.2 = Ubuntu 22.04, whose supported ROS 2 distribution is
 # Humble. For Jazzy/Lyrical use a JetPack 7 (Ubuntu 24.04) base.
-ROS_DISTRO="humble"
-OS="jp6.2.2"
+ROS_DISTRO="jazzy"
+OS="r38.4"
 SDK="latest"
 SDK_URL=""        # custom ZED SDK .run installer URL (empty => published image)
 VARIANT="devel"   # Jetson images always use the 'devel' base variant
